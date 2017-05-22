@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# Stop on error
+set -e
+
 # runing test for case9 
 echo "#####################################################"
 echo "Testing (StructJuMP + Ipopt) Model: SC-ACOPF  Data: case9 with 2 contingencies"
