@@ -20,7 +20,10 @@ before_install:
   - ssh-add /tmp/deploy_rsa
   - git clone git@xgitlab.cels.anl.gov:schanen/ma57.git
   - git clone https://github.com/michel2323/PIPS
-  - if [ $TEST_WITH_MA27 -eq "0" ]; then cp ./ma57/ma57-3.9.0.tar.gz ./PIPS/ThirdPartyLibs/MA57; fi
+  - cp ./PIPSThirdPartyLibs/Cbc-2.9.8.tgz ./PIPS/ThirdPartyLibs/CBC 
+  - cp ./PIPSThirdPartyLibs/metis-4.0.3.tar.gz ./PIPS/ThirdPartyLibs/METIS
+  - cp ./PIPSThirdPartyLibs/solvers.tar.gz ./PIPS/ThirdPartyLibs/ASL
+  - if [ $TEST_WITH_MA27 -eq "0" ]; then cp ./PIPSThirdPartyLibs/ma57-3.9.0.tar.gz ./PIPS/ThirdPartyLibs/MA57; fi
   - sudo apt-get update -qq
   - sudo apt-get install -y libblas-dev liblapack-dev 
   - if [ $MPICH -eq "1" ]; then sudo apt-get install -y libmpich-dev mpich; fi
