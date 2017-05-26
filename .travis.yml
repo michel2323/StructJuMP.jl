@@ -18,7 +18,7 @@ before_install:
   - eval "$(ssh-agent -s)"
   - chmod 600 /tmp/deploy_rsa
   - ssh-add /tmp/deploy_rsa
-  - git clone git@xgitlab.cels.anl.gov:schanen/ma57.git
+  - git clone git@xgitlab.cels.anl.gov:schanen/PIPSThirdPartyLibs.git
   - git clone https://github.com/michel2323/PIPS
   - cp ./PIPSThirdPartyLibs/Cbc-2.9.8.tgz ./PIPS/ThirdPartyLibs/CBC 
   - cp ./PIPSThirdPartyLibs/metis-4.0.3.tar.gz ./PIPS/ThirdPartyLibs/METIS
