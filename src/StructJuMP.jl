@@ -12,7 +12,7 @@ import StructJuMPSolverInterface
 import MPI
 
 export StructuredModel, getStructure, getparent, getchildren, getProcIdxSet,
-       num_scenarios, @second_stage, getprobability, getMyRank
+       num_scenarios, @second_stage, getprobability, getMyRank, mpiWrapper
 # Macro to exportall
 macro exportall(pkg)
     Expr(:export, names(JuMP)...)
