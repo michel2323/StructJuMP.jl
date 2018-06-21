@@ -18,7 +18,7 @@ end
 
 function scopf_model(raw::RawData)
   opfdata = opf_loaddata(raw) #load root node
-  lines_off=Array(Line, length(ARGS)-1)
+  lines_off=Array{Line}(length(ARGS)-1)
   for l in 1:length(lines_off)
     lines_off[l] = opfdata.lines[parse(Int,ARGS[l+1])]
   end
@@ -49,9 +49,9 @@ function scopf_model(raw::RawData)
   # setupperbound(Va[opfdata.bus_ref], .1)
 
   #objective function
-  @NLobjective(opfmodel, Min, (1/(nscen+1))*sum{ generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i] + extra[i]))^2 
+  @NLobjective(opfmodel, Min, (1/(nscen+1))*sum( generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i] + extra[i]))^2 
                          +generators[i].coeff[generators[i].n-1]*(baseMVA*(Pg[i]+extra[i]))
-                     +generators[i].coeff[generators[i].n  ], i=1:ngen})
+                     +generators[i].coeff[generators[i].n  ] for i=1:ngen))
 
 
   # @show "Root - Buses: %d  Lines: %d  Generators", nbus, nline, ngen
@@ -61,19 +61,19 @@ function scopf_model(raw::RawData)
     #real part
     @NLconstraint(
       opfmodel, 
-      ( sum{ YffR[l], l in FromLines[b]} + sum{ YttR[l], l in ToLines[b]} + YshR[b] ) * Vm[b]^2 
-      + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }  
-      + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   } 
-      - ( sum{baseMVA*(Pg[g]+extra[g]), g in BusGeners[b]} - buses[b].Pd ) / baseMVA      # Sbus part
+      ( sum( YffR[l] for l in FromLines[b]) + sum( YttR[l] for l in ToLines[b]) + YshR[b] ) * Vm[b]^2 
+      + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )  
+      + sum( Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   ) 
+      - ( sum(baseMVA*(Pg[g]+extra[g]) for g in BusGeners[b]) - buses[b].Pd ) / baseMVA      # Sbus part
       ==0)
 
     #imaginary part
     @NLconstraint(
       opfmodel,
-      ( sum{-YffI[l], l in FromLines[b]} + sum{-YttI[l], l in ToLines[b]} - YshI[b] ) * Vm[b]^2 
-      + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }
-      + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   }
-      - ( sum{baseMVA*Qg[g], g in BusGeners[b]} - buses[b].Qd ) / baseMVA      #Sbus part
+      ( sum(-YffI[l] for l in FromLines[b]) + sum(-YttI[l] for l in ToLines[b]) - YshI[b] ) * Vm[b]^2 
+      + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )
+      + sum( Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   )
+      - ( sum(baseMVA*Qg[g] for g in BusGeners[b]) - buses[b].Qd ) / baseMVA      #Sbus part
       ==0)
   end
 
@@ -146,9 +146,9 @@ function scopf_model(raw::RawData)
     setlowerbound(Va[opfdata_c.bus_ref], buses[opfdata_c.bus_ref].Va)
     setupperbound(Va[opfdata_c.bus_ref], buses[opfdata_c.bus_ref].Va)
 
-    @NLobjective(opfmodel_c, Min, (1/(nscen+1))*sum{ generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i] + extra[i]))^2 
+    @NLobjective(opfmodel_c, Min, (1/(nscen+1))*sum( generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i] + extra[i]))^2 
                          +generators[i].coeff[generators[i].n-1]*(baseMVA*(Pg[i]+extra[i]))
-                     +generators[i].coeff[generators[i].n  ], i=1:ngen})
+                     +generators[i].coeff[generators[i].n  ] for i=1:ngen))
 
     
     # power flow balance
@@ -156,19 +156,19 @@ function scopf_model(raw::RawData)
       #real part
       @NLconstraint(
         opfmodel_c, 
-        ( sum{ YffR[l], l in FromLines[b]} + sum{ YttR[l], l in ToLines[b]} + YshR[b] ) * Vm[b]^2 
-        + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }  
-        + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   } 
-        - ( sum{baseMVA*(Pg[g] + extra[g]), g in BusGeners[b]} - buses[b].Pd ) / baseMVA      # Sbus part
+        ( sum( YffR[l] for l in FromLines[b]) + sum( YttR[l] for l in ToLines[b]) + YshR[b] ) * Vm[b]^2 
+        + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )  
+        + sum( Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   ) 
+        - ( sum(baseMVA*(Pg[g] + extra[g]) for g in BusGeners[b]) - buses[b].Pd ) / baseMVA      # Sbus part
         ==0)
 
       #imaginary part
       @NLconstraint(
         opfmodel_c,
-        ( sum{-YffI[l], l in FromLines[b]} + sum{-YttI[l], l in ToLines[b]} - YshI[b] ) * Vm[b]^2 
-        + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }
-        + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   }
-        - ( sum{baseMVA*Qg[g], g in BusGeners[b]} - buses[b].Qd ) / baseMVA      #Sbus part
+        ( sum(-YffI[l] for l in FromLines[b]) + sum(-YttI[l] for l in ToLines[b]) - YshI[b] ) * Vm[b]^2 
+        + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )
+        + sum( Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   )
+        - ( sum(baseMVA*Qg[g] for g in BusGeners[b]) - buses[b].Qd ) / baseMVA      #Sbus part
         ==0)
     end
 
@@ -227,10 +227,10 @@ function scopf_structjump_outputAll(opfmodel, scopf_data)
 
   # OUTPUTING
   println("Objective value: ", getObjectiveVal(opfmodel), "USD/hr")
-  VM=getvalue(getvariable(opfmodel,:Vm)); VA=getvalue(getvariable(opfmodel,:Va))
-  PG=getvalue(getvariable(opfmodel,:Pg)); QG=getvalue(getvariable(opfmodel,:Qg))
+  VM=getvalue(getindex(opfmodel,:Vm)); VA=getvalue(getindex(opfmodel,:Va))
+  PG=getvalue(getindex(opfmodel,:Pg)); QG=getvalue(getindex(opfmodel,:Qg))
 
-  EX=getvalue(getvariable(opfmodel,:extra));
+  EX=getvalue(getindex(opfmodel,:extra));
 
   # printing the first stage variables
   println("============================= BUSES ==================================")
@@ -313,19 +313,19 @@ function scopf_init_x(scopfmodel,scopfdata)
       opfdata = opf_loaddata(raw)
       Pg0,Qg0,Vm0,Va0 = scopf_compute_x0(opfdata)
       extra0 = 0.025*Pg0
-      setvalue(getvariable(scopfmodel, :Pg), Pg0)
-      setvalue(getvariable(scopfmodel, :extra), extra0)  
-      setvalue(getvariable(scopfmodel, :Qg), Qg0)
-      setvalue(getvariable(scopfmodel, :Vm), Vm0)
-      setvalue(getvariable(scopfmodel, :Va), Va0)
+      setvalue(getindex(scopfmodel, :Pg), Pg0)
+      setvalue(getindex(scopfmodel, :extra), extra0)  
+      setvalue(getindex(scopfmodel, :Qg), Qg0)
+      setvalue(getindex(scopfmodel, :Vm), Vm0)
+      setvalue(getindex(scopfmodel, :Va), Va0)
     else
       mm = getchildren(scopfmodel)[i]
       opfdata_c=opf_loaddata(raw,lines_off[i]) 
       Pg0,Qg0,Vm0,Va0 = scopf_compute_x0(opfdata_c)
       extra0 = 0.025*Pg0
-      setvalue(getvariable(mm, :extra), extra0)
-      setvalue(getvariable(mm, :Vm), Vm0)
-      setvalue(getvariable(mm, :Va), Va0)
+      setvalue(getindex(mm, :extra), extra0)
+      setvalue(getindex(mm, :Vm), Vm0)
+      setvalue(getindex(mm, :Va), Va0)
     end
   end
 end

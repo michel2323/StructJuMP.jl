@@ -1,6 +1,6 @@
 using StructJuMP
 
-m = StructuredModel()
+m = StructuredModel(num_scenarios=p)
 
 n = 10
 @variable(m, x[1:n] >= 0)
@@ -12,21 +12,21 @@ end
 p = 3
 q = 2
 for s = 1:p
-    bl = StructuredModel(parent=m)
+    bl = StructuredModel(parent=m, num_scenarios=2, id=s)
     @variable(bl, z[1:n] >= 0)
-    @constraint(bl, x + sum{z[i], i=1:n} == 1)
+    @constraint(bl, x + sum(z[i] for i=1:n) .== 1)
     for t = 1:q
-        bll = StructuredModel(parent=bl)
+        bll = StructuredModel(parent=bl, id=t)
         @variable(bll, w[1:n] >= 0)
-        @constraint(bll, sum{w[i], i=1:n; iseven(i)} == 1)
+        @constraint(bll, sum(w[i] for i=1:n if iseven(i)) == 1)
         par = parent(bll)
-        @constraint(bll, sum{z[i], i=1:n} - sum{w[i], i=1:n} >= 0)
-        @constraint(bll, sum{z[i], i=1:n} >= 0)
-        @constraint(bll, 0 >= sum{w[i], i=1:n})
+        @constraint(bll, sum(z[i] for i=1:n) - sum(w[i] for i=1:n) >= 0)
+        @constraint(bll, sum(z[i] for i=1:n) >= 0)
+        @constraint(bll, 0 >= sum(w[i] for i=1:n))
     end
 end
 
-@constraint(m, sum{z, bl in children(m), z=getVar(bl,:z)} == 1)
+@constraint(m, sum(z for bl in children(m), z=getVar(bl,:z)) == 1)
 
 
-sum{indx; cond(indx)} (models[indx].y[1] + x[1]) = 0
+#sum(indx for cond(indx)) (models[indx].y[1] + x[1]) = 0

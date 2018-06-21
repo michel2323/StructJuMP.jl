@@ -4,7 +4,6 @@ module StructJuMP
 
 using JuMP # To reexport, should be using (not import)
 import MathProgBase
-import MathProgBase.MathProgSolverInterface
 import ReverseDiffSparse
 
 # These modules could be optional.
@@ -13,6 +12,7 @@ import MPI
 
 export StructuredModel, getStructure, getparent, getchildren, getProcIdxSet,
        num_scenarios, @second_stage, getprobability, getMyRank, mpiWrapper
+       BendersBridge, DLP, loadAndSolveConicProblem
 # Macro to exportall
 macro exportall(pkg)
     Expr(:export, names(JuMP)...)
@@ -83,6 +83,19 @@ default_probability(::Void) = 1.0
 # StructuredModel
 # ---------------
 
+function structprinthook(io::IO, m::Model)
+    print(io, m, ignore_print_hook=true)
+    print(io, "*** children ***\n")
+    # TODO it would be nice to indent all the children
+    # essentially wrap the IO object (subclass it) to add 4 spaces before each line
+    # this would then recursively be wrapped as more stages are added
+    for (id, mm) in getchildren(m)
+      @printf(io, "Child ID %d:\n", id)
+      print(io, mm)
+      print(io, "\n")
+    end
+end
+
 # Constructor with the number of scenarios
 function StructuredModel(;solver=JuMP.UnsetSolver(), parent=nothing, same_children_as=nothing, id=0, comm=isdefined(:MPI) ? MPI.Comm(-1) : -1, num_scenarios::Int=0, prob::Float64=default_probability(parent))
     m = JuMP.Model(solver=solver)
@@ -116,6 +129,10 @@ function StructuredModel(;solver=JuMP.UnsetSolver(), parent=nothing, same_childr
     else
         m.ext[:Stochastic] = StructureData(probability, children, parent, num_scenarios, Dict{JuMP.Variable,JuMP.Variable}())
     end
+
+    # Printing children is important as well
+    JuMP.setprinthook(m, structprinthook)
+
     m
 end
 
@@ -172,5 +189,7 @@ macro second_stage(m,ind,code)
 end
 
 include("nlp.jl")
+
+include("BendersBridge.jl")
 
 end

@@ -8,10 +8,10 @@ function acopf_solve(opfmodel, opf_data)
   # Initial point - needed especially for pegase cases
   #
   Pg0,Qg0,Vm0,Va0 = acopf_initialPt_IPOPT(opf_data)
-  setvalue(getvariable(opfmodel, :Pg), Pg0)  
-  setvalue(getvariable(opfmodel, :Qg), Qg0)
-  setvalue(getvariable(opfmodel, :Vm), Vm0)
-  setvalue(getvariable(opfmodel, :Va), Va0)
+  setvalue(getindex(opfmodel, :Pg), Pg0)  
+  setvalue(getindex(opfmodel, :Qg), Qg0)
+  setvalue(getindex(opfmodel, :Vm), Vm0)
+  setvalue(getindex(opfmodel, :Va), Va0)
 
   status = solve(opfmodel)
 
@@ -48,14 +48,14 @@ function acopf_model(opf_data)
   # minimize active power
 #  @NLobjective(opfmodel, 
 #		  Min, 
-#		  sum{ generators[i].coeff[generators[i].n] + 
-#		       sum{generators[i].coeff[generators[i].n-k]*(baseMVA*Pg[i])^k, k=1:generators[i].n-1}, 
-#		       i=1:ngen}
+#		  sum( generators[i].coeff[generators[i].n] + 
+#		       sum(generators[i].coeff[generators[i].n-k]*(baseMVA*Pg[i])^k for k=1:generators[i].n-1), 
+#		       for i=1:ngen)
 #		 )
  
-  @NLobjective(opfmodel, Min, sum{ generators[i].coeff[generators[i].n-2]*(baseMVA*Pg[i])^2 
+  @NLobjective(opfmodel, Min, sum( generators[i].coeff[generators[i].n-2]*(baseMVA*Pg[i])^2 
 			             +generators[i].coeff[generators[i].n-1]*(baseMVA*Pg[i])
-				     +generators[i].coeff[generators[i].n  ], i=1:ngen})
+				     +generators[i].coeff[generators[i].n  ] for i=1:ngen))
 
   #
   # power flow balance
@@ -64,20 +64,20 @@ function acopf_model(opf_data)
     #real part
     @NLconstraint(
       opfmodel, 
-      ( sum{ YffR[l], l in FromLines[b]} + sum{ YttR[l], l in ToLines[b]} + YshR[b] ) * Vm[b]^2 
-      + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }  
-      + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   } 
-      - ( sum{baseMVA*Pg[g], g in BusGeners[b]} - buses[b].Pd ) / baseMVA      # Sbus part
+      ( sum( YffR[l] for l in FromLines[b]) + sum( YttR[l] for l in ToLines[b]) + YshR[b] ) * Vm[b]^2 
+      + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *( YftR[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftI[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )  
+      + sum( Vm[b]*Vm[busIdx[lines[l].from]]*( YtfR[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfI[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   ) 
+      - ( sum(baseMVA*Pg[g] for g in BusGeners[b]) - buses[b].Pd ) / baseMVA      # Sbus part
       ==0)
 #  end
 #  for b in 1:nbus 
     #imaginary part
     @NLconstraint(
       opfmodel,
-      ( sum{-YffI[l], l in FromLines[b]} + sum{-YttI[l], l in ToLines[b]} - YshI[b] ) * Vm[b]^2 
-      + sum{ Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )), l in FromLines[b] }
-      + sum{ Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])), l in ToLines[b]   }
-      - ( sum{baseMVA*Qg[g], g in BusGeners[b]} - buses[b].Qd ) / baseMVA      #Sbus part
+      ( sum(-YffI[l] for l in FromLines[b]) + sum(-YttI[l] for l in ToLines[b]) - YshI[b] ) * Vm[b]^2 
+      + sum( Vm[b]*Vm[busIdx[lines[l].to]]  *(-YftI[l]*cos(Va[b]-Va[busIdx[lines[l].to]]  ) + YftR[l]*sin(Va[b]-Va[busIdx[lines[l].to]]  )) for l in FromLines[b] )
+      + sum( Vm[b]*Vm[busIdx[lines[l].from]]*(-YtfI[l]*cos(Va[b]-Va[busIdx[lines[l].from]]) + YtfR[l]*sin(Va[b]-Va[busIdx[lines[l].from]])) for l in ToLines[b]   )
+      - ( sum(baseMVA*Qg[g] for g in BusGeners[b]) - buses[b].Qd ) / baseMVA      #Sbus part
       ==0)
   end
   #
@@ -154,8 +154,8 @@ function acopf_outputAll(opfmodel, opf_data)
 
   # OUTPUTING
   println("Objective value: ", getobjectivevalue(opfmodel), "USD/hr")
-  VM=getvalue(getvariable(opfmodel,:Vm)); VA=getvalue(getvariable(opfmodel,:Va))
-  PG=getvalue(getvariable(opfmodel,:Pg)); QG=getvalue(getvariable(opfmodel,:Qg))
+  VM=getvalue(getindex(opfmodel,:Vm)); VA=getvalue(getindex(opfmodel,:Va))
+  PG=getvalue(getindex(opfmodel,:Pg)); QG=getvalue(getindex(opfmodel,:Qg))
 
   println("============================= BUSES ==================================")
   println("  BUS    Vm     Va   |   Pg (MW)    Qg(MVAr) ")   # |    P (MW)     Q (MVAr)")  #|         (load)   ") 

@@ -13,11 +13,11 @@ function scopf_solve(opfmodel, scopf_data)
   # Initial point - needed especially for pegase cases
   #
   Pg0,Qg0,Vm0,Va0 = acopf_initialPt_IPOPT(scopf_data.opfdata)
-  setvalue(getvariable(opfmodel, :Pg), Pg0)  
-  setvalue(getvariable(opfmodel, :Qg), Qg0)
-  extra_jump=getvariable(opfmodel, :extra)
-  Vm_jump=getvariable(opfmodel, :Vm)
-  Va_jump=getvariable(opfmodel, :Va)
+  setvalue(getindex(opfmodel, :Pg), Pg0)  
+  setvalue(getindex(opfmodel, :Qg), Qg0)
+  extra_jump=getindex(opfmodel, :extra)
+  Vm_jump=getindex(opfmodel, :Vm)
+  Va_jump=getindex(opfmodel, :Va)
 
   setvalue(Vm_jump[:,0], Vm0)    
   setvalue(Va_jump[:,0], Va0)    
@@ -62,9 +62,9 @@ function scopf_model(scopf_data)
   #@variable(opfmodel,Pg[i=1:ngen])
   @variable(opfmodel, generators[i].Qmin <= Qg[i=1:ngen] <= generators[i].Qmax)
 
-  @NLobjective(opfmodel, Min, sum{ generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i]+extra[i,c]))^2 
+  @NLobjective(opfmodel, Min, sum( generators[i].coeff[generators[i].n-2]*(baseMVA*(Pg[i]+extra[i,c]))^2 
 			             +generators[i].coeff[generators[i].n-1]*(baseMVA*(Pg[i]+extra[i,c]))
-				     +generators[i].coeff[generators[i].n  ], i=1:ngen, c=0:ncont}/(1+ncont))
+				     +generators[i].coeff[generators[i].n  ] for i=1:ngen, c=0:ncont) / (1+ncont))
 
 
   @variable(opfmodel, sd.opfdata.buses[i].Vmin <= Vm[i=1:nbus, c=0:ncont] <= sd.opfdata.buses[i].Vmax)
@@ -76,6 +76,7 @@ function scopf_model(scopf_data)
     setupperbound(Va[sd.opfdata.bus_ref,c], buses[sd.opfdata.bus_ref].Va)
   end
 
+  @constraint(opfmodel, ex[i=1:ngen,co=0:ncont], generators[i].Pmin <= Pg[i] + extra[i,co] <= generators[i].Pmax)
   for co=0:ncont
     #branch admitances
     if co==0
@@ -90,28 +91,27 @@ function scopf_model(scopf_data)
     end
     nline=length(lines)
 
-   @constraint(opfmodel, ex[i=1:ngen], generators[i].Pmin <= Pg[i] + extra[i,co] <= generators[i].Pmax)
 
     # power flow balance
     for b in 1:nbus
       #real part
       @NLconstraint( opfmodel, 
-        ( sum{ YffR[l], l in FromLines[b]} + sum{ YttR[l], l in ToLines[b]} + YshR[b] ) * Vm[b,co]^2 
-        + sum{  Vm[b,co]*Vm[busIdx[lines[l].to],  co]*( YftR[l]*cos(Va[b,co]-Va[busIdx[lines[l].to],  co]) 
-              + YftI[l]*sin(Va[b,co]-Va[busIdx[lines[l].to],co]  )), l in FromLines[b] }  
-        + sum{  Vm[b,co]*Vm[busIdx[lines[l].from],co]*( YtfR[l]*cos(Va[b,co]-Va[busIdx[lines[l].from],co]) 
-              + YtfI[l]*sin(Va[b,co]-Va[busIdx[lines[l].from],co])), l in ToLines[b]   } 
-        -(sum{baseMVA*(Pg[g]+extra[g,co]), g in BusGeners[b]} - buses[b].Pd) / baseMVA      # Sbus part
+        ( sum( YffR[l] for l in FromLines[b]) + sum( YttR[l] for l in ToLines[b]) + YshR[b] ) * Vm[b,co]^2 
+        + sum(  Vm[b,co]*Vm[busIdx[lines[l].to],  co]*( YftR[l]*cos(Va[b,co]-Va[busIdx[lines[l].to],  co]) 
+              + YftI[l]*sin(Va[b,co]-Va[busIdx[lines[l].to],co]  )) for l in FromLines[b] )  
+        + sum(  Vm[b,co]*Vm[busIdx[lines[l].from],co]*( YtfR[l]*cos(Va[b,co]-Va[busIdx[lines[l].from],co]) 
+              + YtfI[l]*sin(Va[b,co]-Va[busIdx[lines[l].from],co])) for l in ToLines[b]   ) 
+        -(sum(baseMVA*(Pg[g]+extra[g,co]) for g in BusGeners[b]) - buses[b].Pd) / baseMVA      # Sbus part
         ==0)
 
       #imaginary part
       @NLconstraint( opfmodel,
-        ( sum{-YffI[l], l in FromLines[b]} + sum{-YttI[l], l in ToLines[b]} - YshI[b] ) * Vm[b,co]^2 
-        + sum{  Vm[b,co]*Vm[busIdx[lines[l].to],co]  *(-YftI[l]*cos(Va[b,co]-Va[busIdx[lines[l].to],  co]) 
-              + YftR[l]*sin(Va[b,co]-Va[busIdx[lines[l].to],co]  )), l in FromLines[b] }
-        + sum{ Vm[b,co]*Vm[busIdx[lines[l].from],co] *(-YtfI[l]*cos(Va[b,co]-Va[busIdx[lines[l].from],co]) 
-              + YtfR[l]*sin(Va[b,co]-Va[busIdx[lines[l].from],co])), l in ToLines[b]   }
-        -(sum{baseMVA*Qg[g], g in BusGeners[b]} - buses[b].Qd) / baseMVA      #Sbus part
+        ( sum(-YffI[l] for l in FromLines[b]) + sum(-YttI[l] for l in ToLines[b]) - YshI[b] ) * Vm[b,co]^2 
+        + sum(  Vm[b,co]*Vm[busIdx[lines[l].to],co]  *(-YftI[l]*cos(Va[b,co]-Va[busIdx[lines[l].to],  co]) 
+              + YftR[l]*sin(Va[b,co]-Va[busIdx[lines[l].to],co]  )) for l in FromLines[b] )
+        + sum( Vm[b,co]*Vm[busIdx[lines[l].from],co] *(-YtfI[l]*cos(Va[b,co]-Va[busIdx[lines[l].from],co]) 
+              + YtfR[l]*sin(Va[b,co]-Va[busIdx[lines[l].from],co])) for l in ToLines[b]   )
+        -(sum(baseMVA*Qg[g] for g in BusGeners[b]) - buses[b].Qd) / baseMVA      #Sbus part
         ==0)
     end # of for: power flow balance loop
 
@@ -158,9 +158,9 @@ function scopf_model(scopf_data)
   # minimize active power
 #  @NLobjective(opfmodel, 
 #		  Min, 
-#		  sum{ generators[i].coeff[generators[i].n] + 
-#		       sum{generators[i].coeff[generators[i].n-k]*(baseMVA*Pg[i])^k, k=1:generators[i].n-1}, 
-#		       i=1:ngen}
+#		  sum( generators[i].coeff[generators[i].n] + 
+#		       sum(generators[i].coeff[generators[i].n-k]*(baseMVA*Pg[i])^k for k=1:generators[i].n-1) 
+#		       for i=1:ngen)
 #		 )
  
 
@@ -198,12 +198,12 @@ function scopf_outputAll(opfmodel, scopf_data)
 
   # OUTPUTING
   println("Objective value: ", getobjectivevalue(opfmodel), "USD/hr")
-  VM=getvalue(getvariable(opfmodel,:Vm)); VA=getvalue(getvariable(opfmodel,:Va));
-  PG=getvalue(getvariable(opfmodel,:Pg)); QG=getvalue(getvariable(opfmodel,:Qg));
+  VM=getvalue(getindex(opfmodel,:Vm)); VA=getvalue(getindex(opfmodel,:Va));
+  PG=getvalue(getindex(opfmodel,:Pg)); QG=getvalue(getindex(opfmodel,:Qg));
 
   VM=VM[:,0]; VA=VA[:,0]; #base case
 
-  EX=getvalue(getvariable(opfmodel,:extra));
+  EX=getvalue(getindex(opfmodel,:extra));
   EX=EX[:,0];
 
   # printing the first stage variables
