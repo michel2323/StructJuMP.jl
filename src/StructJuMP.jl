@@ -12,7 +12,7 @@ import MPI
 
 export StructuredModel, getStructure, getparent, getchildren, getProcIdxSet,
        num_scenarios, @second_stage, getprobability, getMyRank, mpiWrapper
-       BendersBridge, DLP, loadAndSolveConicProblem
+       #BendersBridge, DLP, loadAndSolveConicProblem
 # Macro to exportall
 macro exportall(pkg)
     Expr(:export, names(JuMP)...)
@@ -191,6 +191,6 @@ end
 
 include("nlp.jl")
 
-include("BendersBridge.jl")
+#include("BendersBridge.jl")
 
 end
