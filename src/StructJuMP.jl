@@ -53,7 +53,8 @@ if isdefined(:MPI)
     end
     function freeMPIWrapper(instance::MPIWrapper)
         if isdefined(:MPI) && MPI.Initialized() && !MPI.Finalized()
-            MPI.Finalize()
+            #MPI.Finalize()
+            #println("Finalized would have been called")
         end
     end
 
