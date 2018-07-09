@@ -35,7 +35,7 @@ install:
   - cd PIPS ; ./build_pips.sh ; cd ..
   - julia -e 'Pkg.clone("https://github.com/michel2323/StructJuMP.jl")'
   - julia -e 'Pkg.checkout("StructJuMP","julia0.6")'
-  - julia -e 'Pkg.clone("https://github.com/StructJuMP/StructJuMPSolverInterface.jl")'
+  - julia -e 'Pkg.clone("https://github.com/michel2323/StructJuMPSolverInterface.jl")'
   - julia -e 'Pkg.checkout("StructJuMPSolverInterface","julia0.6")'
   
 script:
