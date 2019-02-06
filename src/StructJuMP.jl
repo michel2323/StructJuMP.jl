@@ -1,6 +1,8 @@
 module StructJuMP
 
-export StructuredModel
+export StructuredModel, num_scenarios, getchildren, getparent, solve
+using StructJuMPSolverInterface
+import MPI
 
 using Compat
 
@@ -8,14 +10,19 @@ using MathOptInterface
 const MOI = MathOptInterface
 
 using JuMP # To reexport, should be using (not import)
+using JuMP.Derivatives
 # Macro to exportall
 macro exportall(pkg)
     Expr(:export, names(JuMP)...)
 end
 @exportall JuMP
-
+global solve = nothing
 
 # The following is largely inspired from JuMP/test/JuMPExtension.jl
+mutable struct MPIWrapper
+    comm::MPI.Comm
+end
+
 
 mutable struct StructuredModel <: JuMP.AbstractModel
     # Structured data
@@ -23,8 +30,10 @@ mutable struct StructuredModel <: JuMP.AbstractModel
     children::Dict{Int, StructuredModel}
     probability::Dict{Int, Float64}
     num_scen::Int
-
+    # othermap::Dict{StructuredVariableRef, StructuredVariableRef}
+    mpiWrapper
     # Model data
+    nlp_data
     nextvaridx::Int                                 # Next variable index is nextvaridx+1
     variables::Dict{Int, JuMP.AbstractVariable}     # Map varidx -> variable
     varnames::Dict{Int, String}                     # Map varidx -> name
@@ -35,7 +44,7 @@ mutable struct StructuredModel <: JuMP.AbstractModel
     objective_function::JuMP.AbstractJuMPScalar
     objdict::Dict{Symbol, Any}                      # Same that JuMP.Model's field `objdict`
     function StructuredModel(; parent=nothing, same_children_as=nothing, id=0,
-                             num_scenarios::Int=0,
+                             num_scenarios::Int=0, nlp_data=nothing, 
                              prob::Float64=default_probability(parent))
         if same_children_as !== nothing
             if !isa(same_children_as, StructuredModel)
@@ -48,20 +57,24 @@ mutable struct StructuredModel <: JuMP.AbstractModel
             children = Dict{Int, JuMP.Model}()
         end
 
-        model = new(parent, children, probability, num_scenarios,                    # Structured
+        model = new(parent, children, probability, num_scenarios, MPIWrapper(MPI.COMM_WORLD), nothing,                    # Structured
                     0, Dict{Int, JuMP.AbstractVariable}(),   Dict{Int, String}(),    # Model Variables
                     0, Dict{Int, JuMP.AbstractConstraint}(), Dict{Int, String}(),    # Model Constraints
                     MOI.FeasibilitySense, zero(JuMP.GenericAffExpr{Float64, StructuredVariableRef}), # Model objective
                     Dict{Symbol, Any}())                                             # Model objects
-
+        
         if parent === nothing
             id = 0
+            print("In here\n")
+            if isdefined(@__MODULE__, :StructJuMPSolverInterface)
+                print("Also in here\n")
+                global solve = StructJuMPSolverInterface.sj_solve
+            end
         else
             @assert id != 0
             parent.children[id] = model
             parent.probability[id] = prob
         end
-
         return model
     end
 end
@@ -201,5 +214,28 @@ function JuMP.set_name(cref::StructuredConstraintRef, name::String)
 end
 
 include("BendersBridge.jl")
+
+# NLP Stuff
+
+# function JuMP.set_objective(m::StructuredModel, sense::MOI.OptimizationSense,
+#                        ex::JuMP.NonlinearExprData)
+function JuMP.set_objective(m::StructuredModel, sense::MOI.OptimizationSense,
+                       ex::JuMP.NonlinearExprData)
+    JuMP.initNLP(m)
+    JuMP.set_objective_sense(m, sense)
+    m.nlp_data.nlobj = ex
+    # TODO: what do we do about existing objectives in the MOI backend?
+    return
+end
+function JuMP.set_objective_sense(m::StructuredModel, sense)
+    m.objective_sense = sense
+end
+function JuMP.initNLP(m::StructuredModel)
+    if m.nlp_data === nothing
+        m.nlp_data = JuMP.NLPData()
+    end
+end
+include("parse_nlp.jl")
+
 
 end
