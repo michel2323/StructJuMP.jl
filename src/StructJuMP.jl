@@ -5,6 +5,7 @@ module StructJuMP
 using JuMP # To reexport, should be using (not import)
 import MathProgBase
 import ReverseDiffSparse
+using Printf, Libdl
 
 # These modules could be optional.
 import StructJuMPSolverInterface
@@ -23,24 +24,24 @@ end
 # ---------------
 # StructureData
 # ---------------
-if isdefined(:MPI)
-    type MPIWrapper
+if @isdefined(MPI)
+    mutable struct MPIWrapper
         comm::MPI.Comm
         init::Function
 
         function MPIWrapper()
             instance = new(MPI.Comm(-1))
-            finalizer(instance, freeMPIWrapper)
+            finalizer(freeMPIWrapper, instance)
 
             instance.init = function(ucomm::MPI.Comm)
-                if isdefined(:MPI) && MPI.Initialized() && ucomm.val == -1
+                if @isdefined(MPI) && MPI.Initialized() && ucomm.val == -1
                     instance.comm = MPI.COMM_WORLD
-                elseif isdefined(:MPI) && !MPI.Initialized()
+                elseif @isdefined(MPI) && !MPI.Initialized()
                     MPI.Init()
                     instance.comm = MPI.COMM_WORLD
-                elseif isdefined(:MPI) && MPI.Initialized() && ucomm.val != -1
+                elseif @isdefined(MPI) && MPI.Initialized() && ucomm.val != -1
                     instance.comm = ucomm
-                elseif isdefined(:MPI) && MPI.Finalized()
+                elseif @isdefined(MPI) && MPI.Finalized()
                     error("MPI is already finalized!")
                 else
                     #doing nothing
@@ -52,7 +53,7 @@ if isdefined(:MPI)
 
     end
     function freeMPIWrapper(instance::MPIWrapper)
-        if isdefined(:MPI) && MPI.Initialized() && !MPI.Finalized()
+        if @isdefined(MPI) && MPI.Initialized() && !MPI.Finalized()
             #MPI.Finalize()
             #println("Finalized would have been called")
         end
@@ -60,7 +61,7 @@ if isdefined(:MPI)
 
     const mpiWrapper = MPIWrapper();
 
-    type StructureData
+    mutable struct StructureData
         probability::Dict{Int,Float64}
         children::Dict{Int,JuMP.Model}
         parent
@@ -69,7 +70,7 @@ if isdefined(:MPI)
         mpiWrapper::MPIWrapper
     end
 else
-    type StructureData
+    mutable struct StructureData
         probability::Dict{Int,Float64}
         children::Dict{Int,JuMP.Model}
         parent
@@ -78,7 +79,7 @@ else
     end
 end
 default_probability(m::JuMP.Model) = 1 / num_scenarios(m)
-default_probability(::Void) = 1.0
+default_probability(::Nothing) = 1.0
 
 # ---------------
 # StructuredModel
@@ -98,14 +99,14 @@ function structprinthook(io::IO, m::Model)
 end
 
 # Constructor with the number of scenarios
-function StructuredModel(;solver=JuMP.UnsetSolver(), parent=nothing, same_children_as=nothing, id=0, comm=isdefined(:MPI) ? MPI.Comm(-1) : -1, num_scenarios::Int=0, prob::Float64=default_probability(parent))
+function StructuredModel(;solver=JuMP.UnsetSolver(), parent=nothing, same_children_as=nothing, id=0, comm=@isdefined(MPI) ? MPI.Comm(-1) : -1, num_scenarios::Int=0, prob::Float64=default_probability(parent))
     m = JuMP.Model(solver=solver)
     if parent === nothing
         id = 0
-        if isdefined(:MPI)
+        if @isdefined(MPI)
             mpiWrapper.init(comm)
         end
-        if isdefined(:StructJuMPSolverInterface)
+        if @isdefined(StructJuMPSolverInterface)
             JuMP.setsolvehook(m,StructJuMPSolverInterface.sj_solve)
         end
     else
@@ -125,7 +126,7 @@ function StructuredModel(;solver=JuMP.UnsetSolver(), parent=nothing, same_childr
       probability = Dict{Int, Float64}()
       children = Dict{Int, JuMP.Model}()
     end
-    if isdefined(:MPI)
+    if @isdefined(MPI)
         m.ext[:Stochastic] = StructureData(probability, children, parent, num_scenarios, Dict{JuMP.Variable,JuMP.Variable}(), mpiWrapper)
     else
         m.ext[:Stochastic] = StructureData(probability, children, parent, num_scenarios, Dict{JuMP.Variable,JuMP.Variable}())
@@ -151,7 +152,7 @@ num_scenarios(m::JuMP.Model)  = getStructure(m).num_scen::Int
 function getMyRank()
     myrank = 0;
     mysize = 1;
-    if isdefined(:MPI) && MPI.Initialized() && !MPI.Finalized()
+    if @isdefined(MPI) && MPI.Initialized() && !MPI.Finalized()
         comm = MPI.COMM_WORLD
         mysize = MPI.Comm_size(comm)
         myrank = MPI.Comm_rank(comm)
@@ -162,7 +163,7 @@ end
 function getProcIdxSet(numScens::Integer)
     mysize = 1;
     myrank = 0;
-    if isdefined(:MPI) == true && MPI.Initialized() == true
+    if @isdefined(MPI) == true && MPI.Initialized() == true
         comm = MPI.COMM_WORLD
         mysize = MPI.Comm_size(comm)
         myrank = MPI.Comm_rank(comm)

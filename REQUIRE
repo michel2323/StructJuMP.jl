@@ -1,4 +1,8 @@
 julia 0.5
-JuMP 0.17
+JuMP 0.18
 MathProgBase
 ReverseDiffSparse
+StructJuMPSolverInterface
+SparseArrays
+Printf
+MPI
