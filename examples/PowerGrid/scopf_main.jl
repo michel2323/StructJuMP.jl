@@ -1,4 +1,4 @@
-include("scopf.jl")
+Base.include(Main, "scopf.jl")
 
 # to obtain a list of off-lines run:  grep "optimal" summaries/case30_SCOPF_summary | awk '{print $2;}' | tr ':\n' ' '
 
@@ -12,7 +12,7 @@ function main()
 
   opfdata = opf_loaddata(ARGS[1])
 
-  lines_off=Array{Line}(length(ARGS)-1)
+  lines_off=Array{Line}(undef, length(ARGS)-1)
   for l in 1:length(lines_off)
     lines_off[l] = opfdata.lines[parse(Int,ARGS[l+1])]
   end

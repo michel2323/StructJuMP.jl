@@ -1,8 +1,11 @@
-include("opfdata.jl")
+Base.include(Main, "opfdata.jl")
 using JuMP
 using Ipopt
+using Printf
+using SparseArrays
+using DelimitedFiles
 
-type SCOPFData
+mutable struct SCOPFData
   opfdata::OPFData
   lines_off::Array
   #Float64::gener_ramp #generator ramp limit for contingency (percentage)
@@ -223,7 +226,7 @@ function scopf_outputAll(opfmodel, scopf_data)
   for i in 1:nbus
     @printf("%4d | %6.2f  %6.2f | %s  | \n",
 	    buses[i].bus_i, VM[i], VA[i]*180/pi, 
-	    length(BusGeners[i])==0?"   --          --  ":@sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
+	    length(BusGeners[i])==0 ? "   --          --  " : @sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
   end   
   println("\n")
 
@@ -256,7 +259,7 @@ function scopf_outputAll(opfmodel, scopf_data)
 
     #println(consRhs)
 
-    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "\%")
+    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "%")
     println("Line   From Bus    To Bus    At capacity")
 
     nlim=1
@@ -266,7 +269,7 @@ function scopf_outputAll(opfmodel, scopf_data)
         idx = 2*nbus+nlim
         
         if( (consRhs[idx]+flowmax)  >= (1-within/100)^2*flowmax )
-          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "\%" ) 
+          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "%" ) 
           #@printf("%7.4f   %7.4f    %7.4f \n", consRhs[idx], consRhs[idx]+flowmax,  flowmax)
         end
         nlim += 1

@@ -1,6 +1,9 @@
 include("opfdata.jl")
 using JuMP
 using Ipopt
+using Printf
+using DelimitedFiles
+using MathProgBase
 
 function acopf_solve(opfmodel, opf_data)
    
@@ -165,7 +168,7 @@ function acopf_outputAll(opfmodel, opf_data)
   for i in 1:nbus
     @printf("%4d | %6.2f  %6.2f | %s  | \n",
 	    buses[i].bus_i, VM[i], VA[i]*180/pi, 
-	    length(BusGeners[i])==0?"   --          --  ":@sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
+	    length(BusGeners[i])==0 ? "   --          --  " : @sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
   end   
   println("\n")
 
@@ -197,7 +200,7 @@ function acopf_outputAll(opfmodel, opf_data)
 
     #println(consRhs)
 
-    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "\%")
+    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "%")
     println("Line   From Bus    To Bus    At capacity")
 
     nlim=1
@@ -207,7 +210,7 @@ function acopf_outputAll(opfmodel, opf_data)
         idx = 2*nbus+nlim
         
         if( (consRhs[idx]+flowmax)  >= (1-within/100)^2*flowmax )
-          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "\%" ) 
+          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "%" ) 
           #@printf("%7.4f   %7.4f    %7.4f \n", consRhs[idx], consRhs[idx]+flowmax,  flowmax)
         end
         nlim += 1

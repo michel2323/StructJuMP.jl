@@ -1,4 +1,5 @@
-include("scopf_structjump.jl")
+using SparseArrays
+Base.include(Main, "scopf_structjump.jl")
 
 function main()
   if length(ARGS) < 4
@@ -9,8 +10,8 @@ function main()
     return
   end
 
-  solver = ARGS[1]; shift!(ARGS)
-  prof = eval(parse(ARGS[1])); shift!(ARGS)
+  solver = ARGS[1]; popfirst!(ARGS)
+  prof = eval(Meta.parse(ARGS[1])); popfirst!(ARGS)
   
   @timing prof tic() #t_user_model_loading
     

@@ -1,8 +1,11 @@
-include("opfdata_structjump.jl")
+Base.include(Main, "opfdata_structjump.jl")
 using StructJuMP, JuMP
 using StructJuMPSolverInterface
+using DelimitedFiles
+using SparseArrays
+using Printf
 
-type SCOPFData
+mutable struct SCOPFData
   raw::RawData
   lines_off::Array
   #Float64::gener_ramp #generator ramp limit for contingency (percentage)
@@ -18,7 +21,7 @@ end
 
 function scopf_model(raw::RawData)
   opfdata = opf_loaddata(raw) #load root node
-  lines_off=Array{Line}(length(ARGS)-1)
+  lines_off=Array{Line}(undef, length(ARGS)-1)
   for l in 1:length(lines_off)
     lines_off[l] = opfdata.lines[parse(Int,ARGS[l+1])]
   end
@@ -250,7 +253,7 @@ function scopf_structjump_outputAll(opfmodel, scopf_data)
   for i in 1:nbus
     @printf("%4d | %6.2f  %6.2f | %s  | \n",
         buses[i].bus_i, VM[i], VA[i]*180/pi, 
-        length(BusGeners[i])==0?"   --          --  ":@sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
+        length(BusGeners[i])==0 ? "   --          --  " : @sprintf("%7.2f     %7.2f", baseMVA*PG[BusGeners[i][1]], baseMVA*QG[BusGeners[i][1]]))
   end   
   println("\n")
 
@@ -283,7 +286,7 @@ function scopf_structjump_outputAll(opfmodel, scopf_data)
 
     #println(consRhs)
 
-    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "\%")
+    @printf("================ Lines within %d %s of flow capacity ===================\n", within, "%")
     println("Line   From Bus    To Bus    At capacity")
 
     nlim=1
@@ -293,7 +296,7 @@ function scopf_structjump_outputAll(opfmodel, scopf_data)
         idx = 2*nbus+nlim
         
         if( (consRhs[idx]+flowmax)  >= (1-within/100)^2*flowmax )
-          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "\%" ) 
+          @printf("%3d      %3d      %3d        %5.3f%s\n", l, lines[l].from, lines[l].to, 100*sqrt((consRhs[idx]+flowmax)/flowmax), "%" ) 
           #@printf("%7.4f   %7.4f    %7.4f \n", consRhs[idx], consRhs[idx]+flowmax,  flowmax)
         end
         nlim += 1

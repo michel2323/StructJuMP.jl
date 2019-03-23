@@ -1,5 +1,3 @@
-#__precompile__()
-
 module StructJuMP
 
 using JuMP # To reexport, should be using (not import)
