@@ -33,10 +33,14 @@ before_install:
 install:
   - cd PIPS ; ./build_3rdparty.sh $TEST_WITH_MA27 ; cd ..
   - cd PIPS ; ./build_pips.sh ; cd ..
-  - julia -e 'Pkg.clone("https://github.com/michel2323/StructJuMP.jl")'
-  - julia -e 'Pkg.checkout("StructJuMP","julia0.7")'
-  - julia -e 'Pkg.clone("https://github.com/michel2323/StructJuMPSolverInterface.jl")'
-  - julia -e 'Pkg.checkout("StructJuMPSolverInterface","julia0.7")'
+  - julia -e 'using Pkg; Pkg.add("Printf")'
+  - julia -e 'using Pkg; Pkg.add("SparseArrays")'
+  - julia -e 'using Pkg; Pkg.add("MPI")'
+  - julia -e 'using Pkg; Pkg.add("JuMP")'
+  - julia -e 'using Pkg; Pkg.add("MathProgBase")'
+  - julia -e 'using Pkg; Pkg.add("Ipopt")'
+  - julia -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/michel2323/StructJuMPSolverInterface.jl"; rev="julia0.7"))'
+  - julia -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/michel2323/StructJuMP.jl"; rev="julia0.7"))'
   
 script:
   - export PIPS_NLP_SHARED_LIB=$PWD/PIPS/build/PIPS-NLP/libpipsnlp.so
